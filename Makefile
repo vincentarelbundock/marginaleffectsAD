@@ -8,9 +8,9 @@ test: install ## run pytest suite
 	uv run --all-extras pytest
 
 lint: ## run the lint checkers
-	uv run --all-extras ruff check marginaleffectsJAX
-	uv run --all-extras ruff format marginaleffectsJAX
-	uv run --all-extras ruff format tests
+	uv run --all-extras ruff check marginaleffectsAD
+	uv run --all-extras ruff format marginaleffectsAD
+	# uv run --all-extras ruff format tests
 
 install: ## install in uv venv
 	uv pip install .
