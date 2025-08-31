@@ -1,7 +1,7 @@
 [project]
-name = "marginaleffectsJAX"
+name = "marginaleffectsAD"
 version = "0.0.0.1"
-description = "Add your description here"
+description = "Automatic differentiation helpers for the marginaleffects package."
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
