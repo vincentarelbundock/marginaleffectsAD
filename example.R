@@ -1,7 +1,7 @@
 library(marginaleffects)
 library(reticulate)
 
-mej <- import("marginaleffectsJAX")
+mej <- reticulate::import("marginaleffectsJAX")
 
 eval_with_python_arrays <- function(FUN, ...) {
   dots <- list(...)
@@ -17,7 +17,7 @@ dispatch_function <- function(mfx) {
   } else if (mfx@calling_function == "comparisons") {
     return("comparisons")
   } else {
-    stop("Only predictions and comparisons are supported.")
+    return(NULL)
   }
 }
 
@@ -34,7 +34,7 @@ dispatch_model <- function(mfx) {
       return("poisson")
     }
   }
-  stop("Only linear, logit, probit, and poisson models are supported.")
+  return(NULL)
 }
 
 dispatch_by <- function(mfx) {
@@ -43,7 +43,7 @@ dispatch_by <- function(mfx) {
   } else if (isFALSE(mfx@by)) {
     return("")
   } else {
-    stop("Only by = TRUE and by = FALSE are supported.")
+    return(NULL)
   }
   return(estimand)
 }
@@ -56,10 +56,9 @@ dispatch_estimand <- function(mfx) {
       return("difference_jacobian")
     } else if (mfx@comparison == "ratio") {
       return("ratio_jacobian")
-    } else {
-      stop("Only difference and ratio comparisons are supported.")
     }
   }
+  return(NULL)
 }
 
 jax_jacobian <- function(coefs, mfx, hi = NULL, lo = NULL, ...) {
@@ -68,6 +67,19 @@ jax_jacobian <- function(coefs, mfx, hi = NULL, lo = NULL, ...) {
   m <- dispatch_model(mfx)
   b <- dispatch_by(mfx)
   e <- dispatch_estimand(mfx)
+  # revert to default marginaleffects finite difference
+  if (is.null(f)) {
+    return(NULL)
+  }
+  if (is.null(m)) {
+    return(NULL)
+  }
+  if (is.null(b)) {
+    return(NULL)
+  }
+  if (is.null(e)) {
+    return(NULL)
+  }
   args <- list(
     FUN = mej[[m]][[f]][[paste0(e, b)]],
     beta = coefs,
