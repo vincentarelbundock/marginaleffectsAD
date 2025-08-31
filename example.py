@@ -4,8 +4,8 @@ import polars as pl
 from marginaleffects import get_dataset
 from formulaic import model_matrix
 import statsmodels.api as sm
-from estimation import logit
-from estimation.utils import standard_errors
+from marginaleffectsJAX import logit
+from marginaleffectsJAX.utils import standard_errors
 
 # Step 1: Download mtcars dataset
 mtcars = get_dataset("mtcars", "datasets").to_pandas()
