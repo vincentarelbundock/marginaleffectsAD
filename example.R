@@ -12,11 +12,22 @@ eval_with_python_arrays <- function(FUN, ...) {
 }
 
 dispatch_function <- function(mfx) {
+  # TODO: `hypothesis = NULL`
+  if (!identical(mfx@type, "response")) {
+    warning("JAX only supports type = 'response'. Reverting to default marginaleffects finite difference.", call. = FALSE)
+    return(NULL)
+  }
+
   if (mfx@calling_function == "predictions") {
     return("predictions")
   } else if (mfx@calling_function == "comparisons") {
+    if (length(mfx@variables) != 1) {
+      warning("JAX only supports one focal variable at a time for comparisons. Reverting to default marginaleffects finite difference.", call. = FALSE)
+      return(NULL)
+    }
     return("comparisons")
   } else {
+    warning("JAX only supports predictions() and comparisons(). Reverting to default marginaleffects finite difference.", call. = FALSE)
     return(NULL)
   }
 }
@@ -34,6 +45,7 @@ dispatch_model <- function(mfx) {
       return("poisson")
     }
   }
+  warning(paste0("JAX does not support models of class ", class(model)[1], ". Reverting to default marginaleffects finite difference."), call. = FALSE)
   return(NULL)
 }
 
@@ -43,6 +55,7 @@ dispatch_by <- function(mfx) {
   } else if (isFALSE(mfx@by)) {
     return("")
   } else {
+    warning("JAX only supports by = TRUE or FALSE. Reverting to default marginaleffects finite difference.", call. = FALSE)
     return(NULL)
   }
   return(estimand)
@@ -58,6 +71,7 @@ dispatch_estimand <- function(mfx) {
       return("jacobian_ratio")
     }
   }
+  warning("JAX only supports `predictions()` and `comparisons()` with `comparisons='difference'` or `'ratio'`. Reverting to default marginaleffects finite difference.", call. = FALSE)
   return(NULL)
 }
 
@@ -105,8 +119,11 @@ predictions(mod, type = "response", newdata = head(mtcars))
 
 avg_predictions(mod, type = "response")
 
-comparisons(mod, type = "response", newdata = head(mtcars))
+comparisons(mod, newdata = head(mtcars))
 
+options(marginaleffects_jacobian_function = NULL)
+p = avg_comparisons(mod, variables = "hp")
+p
 
 
 
