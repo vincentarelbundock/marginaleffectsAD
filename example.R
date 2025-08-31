@@ -1,13 +1,13 @@
 library(marginaleffects)
 library(reticulate)
 
-mej <- reticulate::import("marginaleffectsJAX")
+mad <- reticulate::import("marginaleffectsAD")
 
 eval_with_python_arrays <- function(FUN, ...) {
   dots <- list(...)
-  dots <- lapply(dots, mej$array)
+  dots <- lapply(dots, mad$array)
   J <- do.call(FUN, dots)
-  J <- mej$array(J)
+  J <- mad$array(J)
   return(J)
 }
 
@@ -95,7 +95,7 @@ jax_jacobian <- function(coefs, mfx, hi = NULL, lo = NULL, ...) {
     return(NULL)
   }
   args <- list(
-    FUN = mej[[m]][[f]][[paste0(e, b)]],
+    FUN = mad[[m]][[f]][[paste0(e, b)]],
     beta = coefs,
     X = attr(mfx@newdata, "marginaleffects_model_matrix"),
     X_hi = attr(hi, "marginaleffects_model_matrix"),
@@ -120,6 +120,8 @@ predictions(mod, type = "response", newdata = head(mtcars))
 avg_predictions(mod, type = "response")
 
 comparisons(mod, newdata = head(mtcars))
+
+comparisons(mod, variables = "hp", newdata = head(mtcars))
 
 options(marginaleffects_jacobian_function = NULL)
 p = avg_comparisons(mod, variables = "hp")

@@ -378,7 +378,7 @@ wheels = [
 ]
 
 [[package]]
-name = "marginaleffectsjax"
+name = "marginaleffectsad"
 version = "0.0.0.1"
 source = { virtual = "." }
 dependencies = [
