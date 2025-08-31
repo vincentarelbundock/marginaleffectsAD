@@ -2,7 +2,6 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 from jax import jacrev, jit
-from .predictions import predict, predict_byT, predict_byG
 
 
 def _difference(beta: jnp.ndarray, X_hi: jnp.ndarray, X_lo: jnp.ndarray) -> jnp.ndarray:
@@ -63,19 +62,19 @@ def ratio_byG(
     return group_sums / group_counts
 
 
-def _difference_jacobian(
+def _jacobian_difference(
     beta: jnp.ndarray, X_hi: jnp.ndarray, X_lo: jnp.ndarray
 ) -> jnp.ndarray:
     return X_hi - X_lo
 
 
-def _difference_jacobian_byT(
+def _jacobian_difference_byT(
     beta: jnp.ndarray, X_hi: jnp.ndarray, X_lo: jnp.ndarray
 ) -> jnp.ndarray:
     return jnp.mean(X_hi - X_lo, axis=0)
 
 
-def difference_jacobian_byG(
+def jacobian_difference_byG(
     beta: jnp.ndarray,
     X_hi: jnp.ndarray,
     X_lo: jnp.ndarray,
@@ -87,19 +86,19 @@ def difference_jacobian_byG(
     )
 
 
-def _ratio_jacobian(
+def _jacobian_ratio(
     beta: jnp.ndarray, X_hi: jnp.ndarray, X_lo: jnp.ndarray
 ) -> jnp.ndarray:
     return jacrev(lambda c: _ratio(c, X_hi, X_lo))(beta)
 
 
-def _ratio_jacobian_byT(
+def _jacobian_ratio_byT(
     beta: jnp.ndarray, X_hi: jnp.ndarray, X_lo: jnp.ndarray
 ) -> jnp.ndarray:
     return jacrev(lambda c: _ratio_byT(c, X_hi, X_lo))(beta)
 
 
-def ratio_jacobian_byG(
+def jacobian_ratio_byG(
     beta: jnp.ndarray,
     X_hi: jnp.ndarray,
     X_lo: jnp.ndarray,
@@ -116,36 +115,35 @@ difference = jit(_difference)
 difference_byT = jit(_difference_byT)
 ratio = jit(_ratio)
 ratio_byT = jit(_ratio_byT)
-_difference_jacobian_jit = jit(_difference_jacobian)
-_difference_jacobian_byT_jit = jit(_difference_jacobian_byT)
-_ratio_jacobian_jit = jit(_ratio_jacobian)
-_ratio_jacobian_byT_jit = jit(_ratio_jacobian_byT)
+_jacobian_difference_jit = jit(_jacobian_difference)
+_jacobian_difference_byT_jit = jit(_jacobian_difference_byT)
+_jacobian_ratio_jit = jit(_jacobian_ratio)
+_jacobian_ratio_byT_jit = jit(_jacobian_ratio_byT)
 
 
 # Public jacobian functions that return numpy arrays
-def difference_jacobian(
+def jacobian_difference(
     beta: jnp.ndarray, X_hi: jnp.ndarray, X_lo: jnp.ndarray, *args, **kwargs
 ) -> np.ndarray:
-    return np.array(_difference_jacobian_jit(beta, X_hi, X_lo))
+    return np.array(_jacobian_difference_jit(beta, X_hi, X_lo))
 
 
-def difference_jacobian_byT(
+def jacobian_difference_byT(
     beta: jnp.ndarray, X_hi: jnp.ndarray, X_lo: jnp.ndarray, *args, **kwargs
 ) -> np.ndarray:
-    return np.array(_difference_jacobian_byT_jit(beta, X_hi, X_lo))
+    return np.array(_jacobian_difference_byT_jit(beta, X_hi, X_lo))
 
 
-def ratio_jacobian(
+def jacobian_ratio(
     beta: jnp.ndarray, X_hi: jnp.ndarray, X_lo: jnp.ndarray, *args, **kwargs
 ) -> np.ndarray:
-    return np.array(_ratio_jacobian_jit(beta, X_hi, X_lo))
+    return np.array(_jacobian_ratio_jit(beta, X_hi, X_lo))
 
 
-def ratio_jacobian_byT(
+def jacobian_ratio_byT(
     beta: jnp.ndarray, X_hi: jnp.ndarray, X_lo: jnp.ndarray, *args, **kwargs
 ) -> np.ndarray:
-    return np.array(_ratio_jacobian_byT_jit(beta, X_hi, X_lo))
+    return np.array(_jacobian_ratio_byT_jit(beta, X_hi, X_lo))
 
 
 # Note: *_byG functions cannot be JIT compiled due to num_groups parameter
-

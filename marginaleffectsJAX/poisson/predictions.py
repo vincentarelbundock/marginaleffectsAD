@@ -30,7 +30,12 @@ def _jacobian_byT(beta: jnp.ndarray, X: jnp.ndarray) -> jnp.ndarray:
 
 
 def jacobian_byG(
-    beta: jnp.ndarray, X: jnp.ndarray, groups: jnp.ndarray, num_groups: int, *args, **kwargs
+    beta: jnp.ndarray,
+    X: jnp.ndarray,
+    groups: jnp.ndarray,
+    num_groups: int,
+    *args,
+    **kwargs,
 ) -> np.ndarray:
     return np.array(jacrev(lambda c: predict_byG(c, X, groups, num_groups))(beta))
 
@@ -52,4 +57,3 @@ def jacobian_byT(beta: jnp.ndarray, X: jnp.ndarray, *args, **kwargs) -> np.ndarr
 
 
 # Note: predict_byG and jacobian_byG cannot be JIT compiled due to num_groups parameter
-

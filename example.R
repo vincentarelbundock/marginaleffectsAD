@@ -53,9 +53,9 @@ dispatch_estimand <- function(mfx) {
     return("jacobian")
   } else if (mfx@calling_function == "comparisons") {
     if (mfx@comparison == "difference") {
-      return("difference_jacobian")
+      return("jacobian_difference")
     } else if (mfx@comparison == "ratio") {
-      return("ratio_jacobian")
+      return("jacobian_ratio")
     }
   }
   return(NULL)

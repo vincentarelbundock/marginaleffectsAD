@@ -1,5 +1,4 @@
 import numpy as np
-import pandas as pd
 import polars as pl
 from marginaleffects import get_dataset
 from formulaic import model_matrix

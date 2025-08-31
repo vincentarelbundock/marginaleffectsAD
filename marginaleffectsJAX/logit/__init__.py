@@ -1,4 +1,4 @@
 # Logit model implementations
 
-from . import predictions
-from . import comparisons
+from . import predictions as predictions
+from . import comparisons as comparisons
