@@ -1,10 +1,8 @@
-import jax
 import jax.numpy as jnp
-import numpy as np
-from jax import jacrev, jit
-from typing import Callable, Optional, Union
-from .families import Family, Link, linkinv, get_default_link
-from ..comparisons import ComparisonType, _compute_comparison
+from jax import jit
+from typing import Optional
+from .families import linkinv, get_default_link
+from ..comparisons import _compute_comparison
 from ..utils import (
     group_reducer,
     create_jacobian,

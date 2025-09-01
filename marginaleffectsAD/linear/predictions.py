@@ -1,7 +1,6 @@
-import jax
 import jax.numpy as jnp
 import numpy as np
-from jax import jacrev, jit
+from jax import jit
 from typing import Callable
 from ..utils import group_reducer, create_jacobian_byG
 

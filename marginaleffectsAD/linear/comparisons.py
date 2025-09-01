@@ -1,9 +1,6 @@
-import jax
 import jax.numpy as jnp
-import numpy as np
-from jax import jacrev, jit, lax
-from typing import Callable, Optional
-from ..comparisons import ComparisonType, _compute_comparison
+from jax import jit
+from ..comparisons import _compute_comparison
 from ..utils import (
     group_reducer,
     create_jacobian,
@@ -49,8 +46,6 @@ def comparison_byG(
 ) -> jnp.ndarray:
     comp = _comparison_core(beta, X_hi, X_lo, comparison_type)
     return group_reducer(comp, groups, num_groups)
-
-
 
 
 # Public comparison functions

@@ -1,9 +1,8 @@
-import jax
 import jax.numpy as jnp
 import numpy as np
 from jax import jacfwd, jacrev, jit
-from typing import Callable, Optional
-from .families import Family, Link, linkinv, get_default_link
+from typing import Optional
+from .families import linkinv, get_default_link
 from ..utils import group_reducer, create_jacobian_byG
 
 

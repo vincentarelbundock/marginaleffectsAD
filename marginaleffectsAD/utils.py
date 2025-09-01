@@ -2,7 +2,6 @@ import jax
 import jax.numpy as jnp
 from jax import jit, jacrev
 import numpy as np
-from typing import Callable
 
 
 def array(X):
