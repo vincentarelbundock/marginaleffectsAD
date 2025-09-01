@@ -2,170 +2,82 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 from jax import jacrev, jit
+from typing import Callable, Optional, Union
 from .families import Family, Link, linkinv, get_default_link
+from ..comparisons import ComparisonType, _compute_comparison
+from ..utils import (
+    group_reducer,
+    create_jacobian,
+    create_jacobian_byT,
+    create_jacobian_byG,
+)
 
 
-def _difference(beta: jnp.ndarray, X_hi: jnp.ndarray, X_lo: jnp.ndarray, family_type: int, link_type: int = None) -> jnp.ndarray:
-    if link_type is None:
-        link_type = get_default_link(family_type)
-    pred_hi = linkinv(link_type, X_hi @ beta)
-    pred_lo = linkinv(link_type, X_lo @ beta)
-    return pred_hi - pred_lo
+def _resolve_link(family_type: int, link_type: Optional[int]) -> int:
+    """Resolve link type, using default if None."""
+    return link_type if link_type is not None else get_default_link(family_type)
 
 
-def _difference_byT(
-    beta: jnp.ndarray, X_hi: jnp.ndarray, X_lo: jnp.ndarray, family_type: int, link_type: int = None
+def _comparison_core(
+    beta: jnp.ndarray,
+    X_hi: jnp.ndarray,
+    X_lo: jnp.ndarray,
+    comparison_type: int,
+    family_type: int,
+    link_type: Optional[int],
 ) -> jnp.ndarray:
-    if link_type is None:
-        link_type = get_default_link(family_type)
-    pred_hi = linkinv(link_type, X_hi @ beta)
-    pred_lo = linkinv(link_type, X_lo @ beta)
-    comp = pred_hi - pred_lo
+    """Core comparison function - single source of truth for comparison vector computation."""
+    lt = _resolve_link(family_type, link_type)
+    pred_hi = linkinv(lt, X_hi @ beta)
+    pred_lo = linkinv(lt, X_lo @ beta)
+    return _compute_comparison(comparison_type, pred_hi, pred_lo)
+
+
+@jit
+def _comparison(
+    beta: jnp.ndarray,
+    X_hi: jnp.ndarray,
+    X_lo: jnp.ndarray,
+    comparison_type: int,
+    family_type: int,
+    link_type: int = None,
+) -> jnp.ndarray:
+    return _comparison_core(beta, X_hi, X_lo, comparison_type, family_type, link_type)
+
+
+@jit
+def _comparison_byT(
+    beta: jnp.ndarray,
+    X_hi: jnp.ndarray,
+    X_lo: jnp.ndarray,
+    comparison_type: int,
+    family_type: int,
+    link_type: int = None,
+) -> jnp.ndarray:
+    comp = _comparison_core(beta, X_hi, X_lo, comparison_type, family_type, link_type)
     return jnp.mean(comp)
 
 
-def difference_byG(
+def comparison_byG(
     beta: jnp.ndarray,
     X_hi: jnp.ndarray,
     X_lo: jnp.ndarray,
     groups: jnp.ndarray,
     num_groups: int,
+    comparison_type: int,
     family_type: int,
     link_type: int = None,
 ) -> jnp.ndarray:
-    if link_type is None:
-        link_type = get_default_link(family_type)
-    pred_hi = linkinv(link_type, X_hi @ beta)
-    pred_lo = linkinv(link_type, X_lo @ beta)
-    comp = pred_hi - pred_lo
-    group_sums = jax.ops.segment_sum(comp, groups, num_segments=num_groups)
-    group_counts = jnp.bincount(groups, length=num_groups)
-    return group_sums / group_counts
+    comp = _comparison_core(beta, X_hi, X_lo, comparison_type, family_type, link_type)
+    return group_reducer(comp, groups, num_groups)
 
 
-def _ratio(beta: jnp.ndarray, X_hi: jnp.ndarray, X_lo: jnp.ndarray, family_type: int, link_type: int = None) -> jnp.ndarray:
-    if link_type is None:
-        link_type = get_default_link(family_type)
-    pred_hi = linkinv(link_type, X_hi @ beta)
-    pred_lo = linkinv(link_type, X_lo @ beta)
-    return pred_hi / pred_lo
+# Public comparison functions
+comparison = _comparison
+comparison_byT = _comparison_byT
 
 
-def _ratio_byT(beta: jnp.ndarray, X_hi: jnp.ndarray, X_lo: jnp.ndarray, family_type: int, link_type: int = None) -> jnp.ndarray:
-    if link_type is None:
-        link_type = get_default_link(family_type)
-    pred_hi = linkinv(link_type, X_hi @ beta)
-    pred_lo = linkinv(link_type, X_lo @ beta)
-    ratio_vals = pred_hi / pred_lo
-    return jnp.mean(ratio_vals)
-
-
-def ratio_byG(
-    beta: jnp.ndarray,
-    X_hi: jnp.ndarray,
-    X_lo: jnp.ndarray,
-    groups: jnp.ndarray,
-    num_groups: int,
-    family_type: int,
-    link_type: int = None,
-) -> jnp.ndarray:
-    if link_type is None:
-        link_type = get_default_link(family_type)
-    pred_hi = linkinv(link_type, X_hi @ beta)
-    pred_lo = linkinv(link_type, X_lo @ beta)
-    ratio_vals = pred_hi / pred_lo
-    group_sums = jax.ops.segment_sum(ratio_vals, groups, num_segments=num_groups)
-    group_counts = jnp.bincount(groups, length=num_groups)
-    return group_sums / group_counts
-
-
-def _jacobian_difference(
-    beta: jnp.ndarray, X_hi: jnp.ndarray, X_lo: jnp.ndarray, family_type: int, link_type: int = None
-) -> jnp.ndarray:
-    return jacrev(lambda c: _difference(c, X_hi, X_lo, family_type, link_type))(beta)
-
-
-def _jacobian_difference_byT(
-    beta: jnp.ndarray, X_hi: jnp.ndarray, X_lo: jnp.ndarray, family_type: int, link_type: int = None
-) -> jnp.ndarray:
-    return jacrev(lambda c: _difference_byT(c, X_hi, X_lo, family_type, link_type))(beta)
-
-
-def jacobian_difference_byG(
-    beta: jnp.ndarray,
-    X_hi: jnp.ndarray,
-    X_lo: jnp.ndarray,
-    groups: jnp.ndarray,
-    num_groups: int,
-    family_type: int,
-    link_type: int = None,
-    *args,
-    **kwargs,
-) -> np.ndarray:
-    return np.array(
-        jacrev(lambda c: difference_byG(c, X_hi, X_lo, groups, num_groups, family_type, link_type))(beta)
-    )
-
-
-def _jacobian_ratio(
-    beta: jnp.ndarray, X_hi: jnp.ndarray, X_lo: jnp.ndarray, family_type: int, link_type: int = None
-) -> jnp.ndarray:
-    return jacrev(lambda c: _ratio(c, X_hi, X_lo, family_type, link_type))(beta)
-
-
-def _jacobian_ratio_byT(
-    beta: jnp.ndarray, X_hi: jnp.ndarray, X_lo: jnp.ndarray, family_type: int, link_type: int = None
-) -> jnp.ndarray:
-    return jacrev(lambda c: _ratio_byT(c, X_hi, X_lo, family_type, link_type))(beta)
-
-
-def jacobian_ratio_byG(
-    beta: jnp.ndarray,
-    X_hi: jnp.ndarray,
-    X_lo: jnp.ndarray,
-    groups: jnp.ndarray,
-    num_groups: int,
-    family_type: int,
-    link_type: int = None,
-    *args,
-    **kwargs,
-) -> np.ndarray:
-    return np.array(
-        jacrev(lambda c: ratio_byG(c, X_hi, X_lo, groups, num_groups, family_type, link_type))(beta)
-    )
-
-
-# JIT compiled versions of internal functions
-difference = jit(_difference)
-difference_byT = jit(_difference_byT)
-ratio = jit(_ratio)
-ratio_byT = jit(_ratio_byT)
-_jacobian_difference_jit = jit(_jacobian_difference)
-_jacobian_difference_byT_jit = jit(_jacobian_difference_byT)
-_jacobian_ratio_jit = jit(_jacobian_ratio)
-_jacobian_ratio_byT_jit = jit(_jacobian_ratio_byT)
-
-
-# Public jacobian functions that return numpy arrays
-def jacobian_difference(
-    beta: jnp.ndarray, X_hi: jnp.ndarray, X_lo: jnp.ndarray, family_type: int, link_type: int = None, *args, **kwargs
-) -> np.ndarray:
-    return np.array(_jacobian_difference_jit(beta, X_hi, X_lo, family_type, link_type))
-
-
-def jacobian_difference_byT(
-    beta: jnp.ndarray, X_hi: jnp.ndarray, X_lo: jnp.ndarray, family_type: int, link_type: int = None, *args, **kwargs
-) -> np.ndarray:
-    return np.array(_jacobian_difference_byT_jit(beta, X_hi, X_lo, family_type, link_type))
-
-
-def jacobian_ratio(
-    beta: jnp.ndarray, X_hi: jnp.ndarray, X_lo: jnp.ndarray, family_type: int, link_type: int = None, *args, **kwargs
-) -> np.ndarray:
-    return np.array(_jacobian_ratio_jit(beta, X_hi, X_lo, family_type, link_type))
-
-
-def jacobian_ratio_byT(
-    beta: jnp.ndarray, X_hi: jnp.ndarray, X_lo: jnp.ndarray, family_type: int, link_type: int = None, *args, **kwargs
-) -> np.ndarray:
-    return np.array(_jacobian_ratio_byT_jit(beta, X_hi, X_lo, family_type, link_type))
+# Public jacobian functions
+jacobian = create_jacobian(_comparison)
+jacobian_byT = create_jacobian_byT(_comparison_byT)
+jacobian_byG = create_jacobian_byG(comparison_byG)
