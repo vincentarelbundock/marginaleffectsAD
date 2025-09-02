@@ -38,7 +38,6 @@ def _predict_byT(
     return jnp.mean(pred)
 
 
-@jit
 def predict_byG(
     beta: jnp.ndarray,
     X: jnp.ndarray,
