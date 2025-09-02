@@ -10,10 +10,15 @@ def array(X):
 
 
 @jit
-def standard_errors(J, V) -> jnp.ndarray:
+def _standard_errors(J, V) -> jnp.ndarray:
     J = jnp.asarray(J)
     V = jnp.asarray(V)
     return jnp.sqrt(jnp.sum((J @ V) * J, axis=1))
+
+
+def standard_errors(J, V) -> np.ndarray:
+    se = _standard_errors(J, V)
+    return np.asarray(se, dtype=np.float64)
 
 
 def group_reducer(
