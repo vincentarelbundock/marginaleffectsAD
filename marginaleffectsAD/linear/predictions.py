@@ -61,7 +61,11 @@ def jacobian_byT(beta: jnp.ndarray, X: jnp.ndarray, *args, **kwargs) -> np.ndarr
 
 
 # Public prediction functions
-predict = _predict
+def predict(beta: jnp.ndarray, X: jnp.ndarray):
+    out = _predict(beta, X)
+    return np.array(out)
+
+
 predict_byT = _predict_byT
 
 
