@@ -18,7 +18,7 @@ def _standard_errors(J, V) -> jnp.ndarray:
 
 def standard_errors(J, V) -> np.ndarray:
     se = _standard_errors(J, V)
-    return np.asarray(se, dtype=np.float64)
+    return np.array(se, dtype=np.float64)
 
 
 def group_reducer(
