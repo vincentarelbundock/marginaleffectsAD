@@ -1,6 +1,7 @@
-# 0.0.2
+# 0.0.3
 
 * `glm` module supports many families and link functions.
+* Various fixes
 
 # 0.0.1
 
