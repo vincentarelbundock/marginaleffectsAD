@@ -1,5 +1,9 @@
 # Estimation module for JAX-based marginal effects
 
+# import JAX with 64bit precision (#1)
+import jax
+jax.config.update("jax_enable_x64", True)
+
 from .utils import array as array
 
 # Import submodules to make them accessible
