@@ -1,6 +1,7 @@
 # Estimation module for JAX-based marginal effects
 
 # import JAX with 64bit precision (#1)
+# https://docs.jax.dev/en/latest/notebooks/Common_Gotchas_in_JAX.html#double-64bit-precision
 import jax
 jax.config.update("jax_enable_x64", True)
 
