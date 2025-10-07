@@ -1,12 +1,7 @@
 import jax
 import jax.numpy as jnp
-from jax import jit, jacrev
-from jax import lax
+from jax import jit, lax
 import numpy as np
-
-
-def array(X):
-    return np.array(X)
 
 
 @jit
@@ -31,18 +26,6 @@ def group_reducer(
     num_groups_concrete = lax.stop_gradient(num_groups)
     group_sums = jax.ops.segment_sum(data, groups, num_segments=num_groups_concrete)
     group_counts = jnp.bincount(groups, length=num_groups_concrete)
+    # Reshape group_counts to allow broadcasting with 2D data
+    group_counts = group_counts.reshape(-1, *([1] * (data.ndim - 1)))
     return group_sums / group_counts
-
-
-def create_jacobian(func):
-    """Factory function to create jacobian functions using automatic differentiation."""
-
-    def jacobian(beta, *args, **kwargs) -> np.ndarray:
-        return np.array(jacrev(lambda c: func(c, *args, **kwargs))(beta))
-
-    return jacobian
-
-
-# Aliases for clarity in different contexts
-create_jacobian_byT = create_jacobian
-create_jacobian_byG = create_jacobian

@@ -1,19 +1,10 @@
 import jax.numpy as jnp
-from jax import jit
+import numpy as np
+from jax import jit, jacrev
 from typing import Optional
-from .families import linkinv, get_default_link
-from ..comparisons import _compute_comparison
-from ..utils import (
-    group_reducer,
-    create_jacobian,
-    create_jacobian_byT,
-    create_jacobian_byG,
-)
-
-
-def _resolve_link(family_type: int, link_type: Optional[int]) -> int:
-    """Resolve link type, using default if None."""
-    return link_type if link_type is not None else get_default_link(family_type)
+from .families import linkinv, resolve_link
+from ..comparisons import _compute_comparison, _compute_comparison_scalar, ComparisonType
+from ..utils import group_reducer, standard_errors
 
 
 def _comparison_core(
@@ -22,25 +13,12 @@ def _comparison_core(
     X_lo: jnp.ndarray,
     comparison_type: int,
     family_type: int,
-    link_type: Optional[int],
+    link_type: int,
 ) -> jnp.ndarray:
     """Core comparison function - single source of truth for comparison vector computation."""
-    lt = _resolve_link(family_type, link_type)
-    pred_hi = linkinv(lt, X_hi @ beta)
-    pred_lo = linkinv(lt, X_lo @ beta)
+    pred_hi = linkinv(link_type, X_hi @ beta)
+    pred_lo = linkinv(link_type, X_lo @ beta)
     return _compute_comparison(comparison_type, pred_hi, pred_lo)
-
-
-@jit
-def _comparison(
-    beta: jnp.ndarray,
-    X_hi: jnp.ndarray,
-    X_lo: jnp.ndarray,
-    comparison_type: int,
-    family_type: int,
-    link_type: int = None,
-) -> jnp.ndarray:
-    return _comparison_core(beta, X_hi, X_lo, comparison_type, family_type, link_type)
 
 
 @jit
@@ -56,7 +34,7 @@ def _comparison_byT(
     return jnp.mean(comp)
 
 
-def comparison_byG(
+def _comparison_byG(
     beta: jnp.ndarray,
     X_hi: jnp.ndarray,
     X_lo: jnp.ndarray,
@@ -70,12 +48,93 @@ def comparison_byG(
     return group_reducer(comp, groups, num_groups)
 
 
-# Public comparison functions
-comparison = _comparison
-comparison_byT = _comparison_byT
+@jit
+def _comparisons_core(
+    beta: jnp.ndarray, X_hi: jnp.ndarray, X_lo: jnp.ndarray,
+    comparison_type: int, family_type: int, link_type: int = None
+) -> tuple[jnp.ndarray, jnp.ndarray]:
+    comp = _comparison_core(beta, X_hi, X_lo, comparison_type, family_type, link_type)
+    jac = jacrev(lambda b: _comparison_core(b, X_hi, X_lo, comparison_type, family_type, link_type))(beta)
+    return comp, jac
 
 
-# Public jacobian functions
-jacobian = create_jacobian(_comparison)
-jacobian_byT = create_jacobian_byT(_comparison_byT)
-jacobian_byG = create_jacobian_byG(comparison_byG)
+def comparisons(
+    beta: jnp.ndarray, X_hi: jnp.ndarray, X_lo: jnp.ndarray, vcov: jnp.ndarray,
+    comparison_type: int, family_type: int, link_type: int = None
+) -> dict[str, np.ndarray]:
+    link_type = resolve_link(family_type, link_type)
+
+    # Handle DIFFERENCEAVG separately (returns scalar)
+    if comparison_type == ComparisonType.DIFFERENCEAVG:
+        @jit
+        def _scalar_core(b, X_h, X_l, lt):
+            pred_hi = linkinv(lt, X_h @ b)
+            pred_lo = linkinv(lt, X_l @ b)
+            return _compute_comparison_scalar(0, pred_hi, pred_lo)
+
+        comp = _scalar_core(beta, X_hi, X_lo, link_type)
+        jac = jacrev(lambda b: _scalar_core(b, X_hi, X_lo, link_type))(beta)
+        se = standard_errors(jac.reshape(1, -1), vcov)
+        return {
+            "estimate": np.array(comp),
+            "jacobian": np.array(jac),
+            "std_error": se[0],
+        }
+
+    # Handle element-wise comparisons
+    comp, jac = _comparisons_core(beta, X_hi, X_lo, comparison_type, family_type, link_type)
+    se = standard_errors(jac, vcov)
+    return {
+        "estimate": np.array(comp),
+        "jacobian": np.array(jac),
+        "std_error": se,
+    }
+
+
+@jit
+def _comparisons_byT_core(
+    beta: jnp.ndarray, X_hi: jnp.ndarray, X_lo: jnp.ndarray,
+    comparison_type: int, family_type: int, link_type: int = None
+) -> tuple[jnp.ndarray, jnp.ndarray]:
+    comp = _comparison_byT(beta, X_hi, X_lo, comparison_type, family_type, link_type)
+    jac = jacrev(lambda b: _comparison_byT(b, X_hi, X_lo, comparison_type, family_type, link_type))(beta)
+    return comp, jac
+
+
+def comparisons_byT(
+    beta: jnp.ndarray, X_hi: jnp.ndarray, X_lo: jnp.ndarray, vcov: jnp.ndarray,
+    comparison_type: int, family_type: int, link_type: int = None
+) -> dict[str, np.ndarray]:
+    link_type = resolve_link(family_type, link_type)
+    comp, jac = _comparisons_byT_core(beta, X_hi, X_lo, comparison_type, family_type, link_type)
+    se = standard_errors(jac.reshape(1, -1), vcov)
+    return {
+        "estimate": np.array(comp),
+        "jacobian": np.array(jac),
+        "std_error": se[0],
+    }
+
+
+def _comparisons_byG_core(
+    beta: jnp.ndarray, X_hi: jnp.ndarray, X_lo: jnp.ndarray,
+    groups: jnp.ndarray, num_groups: int,
+    comparison_type: int, family_type: int, link_type: int = None
+) -> tuple[jnp.ndarray, jnp.ndarray]:
+    comp = _comparison_byG(beta, X_hi, X_lo, groups, num_groups, comparison_type, family_type, link_type)
+    jac = jacrev(lambda b: _comparison_byG(b, X_hi, X_lo, groups, num_groups, comparison_type, family_type, link_type))(beta)
+    return comp, jac
+
+
+def comparisons_byG(
+    beta: jnp.ndarray, X_hi: jnp.ndarray, X_lo: jnp.ndarray, vcov: jnp.ndarray,
+    groups: jnp.ndarray, num_groups: int,
+    comparison_type: int, family_type: int, link_type: int = None
+) -> dict[str, np.ndarray]:
+    link_type = resolve_link(family_type, link_type)
+    comp, jac = _comparisons_byG_core(beta, X_hi, X_lo, groups, num_groups, comparison_type, family_type, link_type)
+    se = standard_errors(jac, vcov)
+    return {
+        "estimate": np.array(comp),
+        "jacobian": np.array(jac),
+        "std_error": se,
+    }
