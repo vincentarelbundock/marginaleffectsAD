@@ -116,16 +116,14 @@ cyl_groups = mtcars["cyl"].values
 unique_cyls = np.unique(cyl_groups)
 group_map = {cyl: i for i, cyl in enumerate(unique_cyls)}
 groups = np.array([group_map[cyl] for cyl in cyl_groups])
-num_groups = len(unique_cyls)
 
-# Compute predictions by group
+# Compute predictions by group (num_groups computed automatically)
 result_byG = predictions(
     beta, X, V,
     family_type=Family.BINOMIAL,
     link_type=Link.LOGIT,
-    by_group=True,
-    groups=groups,
-    num_groups=num_groups
+    by=True,
+    groups=groups
 )
 
 print(pl.DataFrame({
@@ -135,15 +133,14 @@ print(pl.DataFrame({
     "std_error": result_byG["std_error"]
 }))
 
-# Compute comparisons by group
+# Compute comparisons by group (num_groups computed automatically)
 result_comp_byG = comparisons(
     beta, X_hi, X_lo, V,
     comparison_type=ComparisonType.DIFFERENCE,
     family_type=Family.BINOMIAL,
     link_type=Link.LOGIT,
-    by_group=True,
-    groups=groups,
-    num_groups=num_groups
+    by=True,
+    groups=groups
 )
 
 print("\nComparisons by cylinder group:")

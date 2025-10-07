@@ -11,7 +11,7 @@ def predictions(
     vcov: jnp.ndarray,
     family_type: Optional[int] = None,
     link_type: Optional[int] = None,
-    by_group: bool = False,
+    by: bool = False,
     groups: Optional[jnp.ndarray] = None,
     num_groups: Optional[int] = None,
 ) -> dict:
@@ -23,21 +23,28 @@ def predictions(
         vcov: Variance-covariance matrix
         family_type: GLM family type (from Family enum). If None, uses linear model.
         link_type: Link function type (from Link enum), optional (GLM only)
-        by_group: If True, compute average predictions by group
-        groups: Group indices (required if by_group=True)
-        num_groups: Number of groups (required if by_group=True)
+        by: If True, compute average predictions by group
+        groups: Group indices (required if by=True). Must be sorted array of non-negative
+            integers starting from 0.
+        num_groups: Number of groups (optional, computed from groups if not provided)
 
     Returns:
         Dictionary with keys:
         - "estimate": Predictions (numpy array)
         - "jacobian": Jacobian matrix (numpy array)
         - "std_error": Standard errors (numpy array)
-        - "groups": Group indices (numpy array, only present when by_group=True)
+        - "groups": Group indices (numpy array, only present when by=True)
     """
     from .utils import standard_errors
 
-    if by_group and (groups is None or num_groups is None):
-        raise ValueError("groups and num_groups required when by_group=True")
+    if by and groups is None:
+        raise ValueError("groups required when by=True")
+
+    # Compute num_groups if not provided
+    if by:
+        groups_array = np.asarray(groups)
+        if num_groups is None:
+            num_groups = int(np.max(groups_array) + 1)
 
     # Dispatch to GLM or linear model
     if family_type is not None:
@@ -47,7 +54,7 @@ def predictions(
         # Resolve link type to avoid None in JIT functions
         resolved_link = link_type if link_type is not None else get_default_link(family_type)
 
-        if by_group:
+        if by:
             est = glm_pred.predict_byG(beta, X, groups, num_groups, family_type, resolved_link)
             jac = glm_pred.jacobian_byG(beta, X, groups, num_groups, family_type, resolved_link)
         else:
@@ -56,7 +63,7 @@ def predictions(
     else:
         from .linear import predictions as lm_pred
 
-        if by_group:
+        if by:
             est = lm_pred.predict_byG(beta, X, groups, num_groups)
             jac = lm_pred.jacobian_byG(beta, X, groups, num_groups)
         else:
@@ -71,7 +78,7 @@ def predictions(
         "std_error": se,
     }
 
-    if by_group:
+    if by:
         result["groups"] = np.arange(num_groups)
 
     return result
@@ -85,7 +92,7 @@ def comparisons(
     comparison_type: int,
     family_type: Optional[int] = None,
     link_type: Optional[int] = None,
-    by_group: bool = False,
+    by: bool = False,
     groups: Optional[jnp.ndarray] = None,
     num_groups: Optional[int] = None,
 ) -> dict:
@@ -99,21 +106,28 @@ def comparisons(
         comparison_type: Type of comparison (from ComparisonType enum)
         family_type: GLM family type (from Family enum). If None, uses linear model.
         link_type: Link function type (from Link enum), optional (GLM only)
-        by_group: If True, compute average comparisons by group
-        groups: Group indices (required if by_group=True)
-        num_groups: Number of groups (required if by_group=True)
+        by: If True, compute average comparisons by group
+        groups: Group indices (required if by=True). Must be sorted array of non-negative
+            integers starting from 0.
+        num_groups: Number of groups (optional, computed from groups if not provided)
 
     Returns:
         Dictionary with keys:
         - "estimate": Comparisons (numpy array)
         - "jacobian": Jacobian matrix (numpy array)
         - "std_error": Standard errors (numpy array)
-        - "groups": Group indices (numpy array, only present when by_group=True)
+        - "groups": Group indices (numpy array, only present when by=True)
     """
     from .utils import standard_errors
 
-    if by_group and (groups is None or num_groups is None):
-        raise ValueError("groups and num_groups required when by_group=True")
+    if by and groups is None:
+        raise ValueError("groups required when by=True")
+
+    # Compute num_groups if not provided
+    if by:
+        groups_array = np.asarray(groups)
+        if num_groups is None:
+            num_groups = int(np.max(groups_array) + 1)
 
     # Dispatch to GLM or linear model
     if family_type is not None:
@@ -123,7 +137,7 @@ def comparisons(
         # Resolve link type to avoid None in JIT functions
         resolved_link = link_type if link_type is not None else get_default_link(family_type)
 
-        if by_group:
+        if by:
             est = glm_comp.comparison_byG(
                 beta, X_hi, X_lo, groups, num_groups, comparison_type, family_type, resolved_link
             )
@@ -136,7 +150,7 @@ def comparisons(
     else:
         from .linear import comparisons as lm_comp
 
-        if by_group:
+        if by:
             est = lm_comp.comparison_byG(beta, X_hi, X_lo, groups, num_groups, comparison_type)
             jac = lm_comp.jacobian_byG(beta, X_hi, X_lo, groups, num_groups, comparison_type)
         else:
@@ -151,7 +165,7 @@ def comparisons(
         "std_error": se,
     }
 
-    if by_group:
+    if by:
         result["groups"] = np.arange(num_groups)
 
     return result
