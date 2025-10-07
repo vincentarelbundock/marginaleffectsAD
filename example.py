@@ -3,8 +3,9 @@ import polars as pl
 from marginaleffects import get_dataset
 from formulaic import model_matrix
 import statsmodels.api as sm
-from marginaleffectsJAX import logit
-from marginaleffectsJAX.utils import standard_errors
+from marginaleffectsAD.glm import predictions as glm_predictions
+from marginaleffectsAD.glm.families import Family, Link
+from marginaleffectsAD.utils import standard_errors
 
 # Step 1: Download mtcars dataset
 mtcars = get_dataset("mtcars", "datasets").to_pandas()
@@ -19,10 +20,10 @@ logit_result = sm.Logit(y, X).fit()
 beta = logit_result.params
 
 # Step 5: Make predictions using JAX implementation
-jax_predictions = logit.predict(beta, X)
+jax_predictions = glm_predictions.predict(beta, X, Family.BINOMIAL, Link.LOGIT)
 
 # Step 6: Compute standard errors using JAX
-J = logit.jacobian(beta, X)
+J = glm_predictions.jacobian(beta, X, Family.BINOMIAL, Link.LOGIT)
 
 # Get variance-covariance matrix from statsmodels
 V = logit_result.cov_params()

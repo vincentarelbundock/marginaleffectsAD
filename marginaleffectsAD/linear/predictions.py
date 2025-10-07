@@ -1,7 +1,6 @@
 import jax.numpy as jnp
 import numpy as np
 from jax import jit
-from typing import Callable
 from ..utils import group_reducer, create_jacobian_byG
 
 
@@ -13,24 +12,14 @@ def _predict_core(
     return X @ beta
 
 
-def _predict_reduced(
-    beta: jnp.ndarray,
-    X: jnp.ndarray,
-    reducer: Callable[[jnp.ndarray], jnp.ndarray],
-) -> jnp.ndarray:
-    """Generic prediction with reducer function applied."""
-    pred = _predict_core(beta, X)
-    return reducer(pred)
-
-
 @jit
 def _predict(beta: jnp.ndarray, X: jnp.ndarray) -> jnp.ndarray:
-    return _predict_reduced(beta, X, lambda x: x)
+    return _predict_core(beta, X)
 
 
 @jit
 def _predict_byT(beta: jnp.ndarray, X: jnp.ndarray) -> jnp.ndarray:
-    return _predict_reduced(beta, X, jnp.mean)
+    return jnp.mean(_predict_core(beta, X))
 
 
 def predict_byG(
@@ -61,12 +50,12 @@ def jacobian_byT(beta: jnp.ndarray, X: jnp.ndarray, *args, **kwargs) -> np.ndarr
 
 
 # Public prediction functions
-def predict(beta: jnp.ndarray, X: jnp.ndarray):
-    out = _predict(beta, X)
-    return np.array(out)
+def predict(beta: jnp.ndarray, X: jnp.ndarray) -> np.ndarray:
+    return np.array(_predict(beta, X))
 
 
-predict_byT = _predict_byT
+def predict_byT(beta: jnp.ndarray, X: jnp.ndarray) -> np.ndarray:
+    return np.array(_predict_byT(beta, X))
 
 
 jacobian_byG = create_jacobian_byG(predict_byG)
