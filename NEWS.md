@@ -1,3 +1,10 @@
+# 0.0.3.3
+
+* Code simplifications: consolidated duplicate factory functions, removed unused helpers
+* Fixed example.py to use correct package name (marginaleffectsAD)
+* Consistent return types in linear predictions module
+* Added comparison types: LNRATIO, LNOR, LIFT with averaging support
+
 # 0.0.3
 
 * `glm` module supports many families and link functions.
