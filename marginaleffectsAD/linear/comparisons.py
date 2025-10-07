@@ -1,7 +1,7 @@
 import jax.numpy as jnp
 import numpy as np
 from jax import jit, jacrev
-from ..comparisons import _compute_comparison
+from ..comparisons import _compute_comparison, _compute_comparison_scalar, ComparisonType
 from ..utils import group_reducer, standard_errors
 
 
@@ -49,6 +49,24 @@ def _comparisons_core(
 def comparisons(
     beta: jnp.ndarray, X_hi: jnp.ndarray, X_lo: jnp.ndarray, vcov: jnp.ndarray, comparison_type: int
 ) -> dict[str, np.ndarray]:
+    # Handle DIFFERENCEAVG separately (returns scalar)
+    if comparison_type == ComparisonType.DIFFERENCEAVG:
+        @jit
+        def _scalar_core(b, X_h, X_l):
+            pred_hi = X_h @ b
+            pred_lo = X_l @ b
+            return _compute_comparison_scalar(0, pred_hi, pred_lo)
+
+        comp = _scalar_core(beta, X_hi, X_lo)
+        jac = jacrev(lambda b: _scalar_core(b, X_hi, X_lo))(beta)
+        se = standard_errors(jac.reshape(1, -1), vcov)
+        return {
+            "estimate": np.array(comp),
+            "jacobian": np.array(jac),
+            "std_error": se[0],
+        }
+
+    # Handle element-wise comparisons
     comp, jac = _comparisons_core(beta, X_hi, X_lo, comparison_type)
     se = standard_errors(jac, vcov)
     return {

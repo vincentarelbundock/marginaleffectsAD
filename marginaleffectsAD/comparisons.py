@@ -13,15 +13,13 @@ class ComparisonType(IntEnum):
     LNRATIO = 2
     LNOR = 3
     LIFT = 4
+    DIFFERENCEAVG = 5
 
 
-def _compute_comparison(
+def _compute_comparison_vector(
     comparison_type: int, pred_hi: jnp.ndarray, pred_lo: jnp.ndarray
 ) -> jnp.ndarray:
-    """Apply comparison function based on type (element-wise).
-
-    Returns N-length array for element-wise comparisons.
-    """
+    """Apply comparison function element-wise (returns N-length array)."""
     return lax.switch(
         comparison_type,
         [
@@ -36,43 +34,25 @@ def _compute_comparison(
     )
 
 
-def _compute_comparison_avg(
+def _compute_comparison_scalar(
     comparison_type: int, pred_hi: jnp.ndarray, pred_lo: jnp.ndarray
 ) -> jnp.ndarray:
-    """Apply comparison with averaging.
+    """Apply comparison function with aggregation (returns scalar)."""
+    return lax.switch(
+        comparison_type,
+        [
+            lambda hi, lo: jnp.mean(hi) - jnp.mean(lo),  # differenceavg
+        ],
+        pred_hi,
+        pred_lo,
+    )
 
-    For RATIO, LNRATIO, LNOR: aggregates first, then computes (mean(hi) / mean(lo))
-    For others: computes element-wise, then aggregates (mean(hi - lo))
 
-    Returns scalar.
+def _compute_comparison(
+    comparison_type: int, pred_hi: jnp.ndarray, pred_lo: jnp.ndarray
+) -> jnp.ndarray:
+    """Apply comparison function element-wise (returns N-length array).
+
+    Note: DIFFERENCEAVG should use _compute_comparison_scalar directly.
     """
-    # For ratio family: aggregate first, then compute
-    if comparison_type in (
-        ComparisonType.RATIO,
-        ComparisonType.LNRATIO,
-        ComparisonType.LNOR,
-    ):
-        hi_mean = jnp.mean(pred_hi)
-        lo_mean = jnp.mean(pred_lo)
-        return lax.switch(
-            comparison_type,
-            [
-                lambda hm, lm: hm - lm,  # not used
-                lambda hm, lm: hm / lm,  # ratioavg = mean(hi) / mean(lo)
-                lambda hm, lm: jnp.log(
-                    hm / lm
-                ),  # lnratioavg = log(mean(hi) / mean(lo))
-                lambda hm, lm: jnp.log((hm / (1 - hm)) / (lm / (1 - lm))),  # lnoravg
-                lambda hm, lm: hm - lm,  # not used
-            ],
-            hi_mean,
-            lo_mean,
-        )
-    else:
-        # For others: compute element-wise, then aggregate
-        comp = _compute_comparison(comparison_type, pred_hi, pred_lo)
-        return jnp.mean(comp)
-
-
-# Convenience instance for direct use
-comparison_type = ComparisonType
+    return _compute_comparison_vector(comparison_type, pred_hi, pred_lo)
