@@ -89,9 +89,18 @@ def validate_family_link(family_type: int, link_type: int) -> bool:
     return link_type in VALID_LINKS[family_type]
 
 
-def get_default_link(family_type: int) -> int:
-    """Get default link function for a family."""
-    return DEFAULT_LINKS.get(family_type, Link.IDENTITY)
+def resolve_link(family_type: int, link_type: int = None) -> int:
+    """Resolve link type, using default if None, and validate the combination."""
+    if link_type is None:
+        return DEFAULT_LINKS.get(family_type, Link.IDENTITY)
+    if not validate_family_link(family_type, link_type):
+        default = DEFAULT_LINKS.get(family_type, Link.IDENTITY)
+        raise ValueError(
+            f"Invalid link {link_type} for family {family_type}. "
+            f"Valid links: {VALID_LINKS.get(family_type, [])}. "
+            f"Using default: {default}"
+        )
+    return link_type
 
 
 # Convenience instances for direct use
