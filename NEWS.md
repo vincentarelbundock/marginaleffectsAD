@@ -1,3 +1,7 @@
+# 0.0.3.1 (dev)
+
+* Use JAX with 64bit precision (fixes #1)
+
 # 0.0.3
 
 * `glm` module supports many families and link functions.
